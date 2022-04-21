@@ -17,16 +17,18 @@ class PageFetcher(Thread):
         :return: Conteúdo em binário da URL passada como parâmetro, ou None se o conteúdo não for HTML
         """
 
-        response = None
-
-        return response.content
+        response = requests.get(obj_url.geturl(), headers={'User-Agent':self.obj_scheduler.usr_agent})
+        if "text/html" in response.headers['content-type']:
+            return response.content
+        return None
 
     def discover_links(self, obj_url: ParseResult, depth: int, bin_str_content: bytes):
         """
         Retorna os links do conteúdo bin_str_content da página já requisitada obj_url
         """
         soup = BeautifulSoup(bin_str_content, features="lxml")
-        for link in soup.select(None):
+        for link in soup.select("href"):
+            print(link)
             obj_new_url = None
             new_depth = None
 

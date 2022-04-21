@@ -1,5 +1,5 @@
 from urllib import robotparser
-from urllib.parse import ParseResult
+from urllib.parse import ParseResult, urlparse
 
 from util.threads import synchronized
 from time import sleep
@@ -33,6 +33,9 @@ class Scheduler:
         self.set_discovered_urls = set()
         self.dic_robots_per_domain = {}
 
+        for url in arr_urls_seeds:
+            self.add_new_page(url,0)
+
     @synchronized
     def count_fetched_page(self) -> None:
         """
@@ -53,7 +56,7 @@ class Scheduler:
         """
         :return: True caso a profundidade for menor que a maxima e a url não foi descoberta ainda. False caso contrário.
         """
-        return False
+        return (depth < self.depth_limit) and obj_url not in self.set_discovered_urls
 
     @synchronized
     def add_new_page(self, obj_url: ParseResult, depth: int) -> bool:
@@ -65,6 +68,12 @@ class Scheduler:
         """
         # https://docs.python.org/3/library/urllib.parse.html
 
+        if self.can_add_page(obj_url,depth):
+            if obj_url.netloc not in self.dic_url_per_domain:
+                self.dic_url_per_domain[Domain(obj_url.netloc,Scheduler.TIME_LIMIT_BETWEEN_REQUESTS)] = []
+            self.dic_url_per_domain[obj_url.netloc].append((obj_url,depth))
+            self.set_discovered_urls.add(obj_url)
+            return True
         return False
 
     @synchronized
@@ -73,11 +82,30 @@ class Scheduler:
         Obtém uma nova URL por meio da fila. Essa URL é removida da fila.
         Logo após, caso o servidor não tenha mais URLs, o mesmo também é removido.
         """
-        return None, None
+        while(True):
+            toDelete = set()
+            for domain in self.dic_url_per_domain:
+                if not domain.is_accessible():
+                    continue
+                if not self.dic_url_per_domain[domain]:
+                    toDelete.add(domain)
+                    continue
+                domain.accessed_now()
+                return self.dic_url_per_domain[domain].pop(0)
+            for domain in toDelete:
+                del self.dic_url_per_domain[domain]
+            if not self.dic_url_per_domain:
+                return (None, None)
+            sleep(10)
 
     def can_fetch_page(self, obj_url: ParseResult) -> bool:
         """
         Verifica, por meio do robots.txt se uma determinada URL pode ser coletada
         """
 
-        return False
+        if obj_url.netloc not in self.dic_robots_per_domain:
+            rp = robotparser.RobotFileParser(obj_url.scheme+"://"+obj_url.netloc+"/robots.txt")
+            rp.read()
+            self.dic_robots_per_domain[obj_url.netloc] = rp
+
+        return self.dic_robots_per_domain[obj_url.netloc].can_fetch(self.usr_agent, obj_url.geturl())
