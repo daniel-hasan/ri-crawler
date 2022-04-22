@@ -33,10 +33,11 @@ class PageFetcherTest(unittest.TestCase):
                               (urlparse('http://www.pudim.com.br/xxi/lala.html'), 3),
                               (urlparse('http://www.terra.com.br/oi/lala.html'), 0)
                               ]
+
         print(f"Simulação da extração de links da página {obj_url.geturl()} na profundidade nível 2...")
         
-        discovered_links = self.fetcher.discover_links(obj_url,2,bin_str_content)
-        self.assertEqual(len(arr_expected_links), len(list(discovered_links)),f"A quantidade de links descobertos deveria ser {len(arr_expected_links)} e não {len(list(discovered_links))}")
+        discovered_links = list(self.fetcher.discover_links(obj_url,2,bin_str_content))
+        self.assertEqual(len(arr_expected_links), len(discovered_links),f"A quantidade de links descobertos deveria ser {len(arr_expected_links)} e não {len(discovered_links)}")
 
         for i,(url_link,depth) in enumerate(discovered_links):
             self.assertEqual(arr_expected_links[i][0].geturl(),url_link.geturl(),f"A {i + 1}ª URL extraída seria {arr_expected_links[i][0].geturl()} e não {url_link.geturl()}")
